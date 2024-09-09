@@ -1,0 +1,67 @@
+---
+- name: Create and Configure Infrastructure
+  hosts: localhost
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - git
+          - python3-pip
+          - yum-utils
+        state: present
+
+    - name: Add Docker repository
+      shell: |
+        echo -e "[docker-ce]\nname=Docker CE Repository\nbaseurl=https://download.docker.com/linux/amazon/2023/amd64/stable/\nenabled=1\ngpgcheck=1\ngpgkey=https://download.docker.com/linux/amazon/gpg" | sudo tee /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install Docker
+      package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Ensure target directory exists
+      file:
+        path: /home/centos/Downloads
+        state: directory
+        mode: '0755'
+
+    - name: Copy SSH key to target machine
+      copy:
+        src: gali.pem
+        dest: /home/centos/Downloads/gali.pem
+        mode: '0600'
+
+    - name: Clone application repository
+      git:
+        repo: 'https://github.com/galiseregin/workshop-CI-CD.git'
+        dest: /home/centos/app
+        version: master  # Update to the correct branch name
+
+    - name: Build Docker image and push to DockerHub
+      shell: |
+        docker build -t your-dockerhub-username/your-app:latest /home/centos/app
+        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+        docker push your-dockerhub-username/your-app:latest
+      environment:
+        DOCKER_USERNAME: "{{ dockerhub_username }}"
+        DOCKER_PASSWORD: "{{ dockerhub_password }}"
+
+    - name: Start Docker container
+      docker_container:
+        name: your-app
+        image: your-dockerhub-username/your-app:latest
+        state: started
+        restart_policy: always
+

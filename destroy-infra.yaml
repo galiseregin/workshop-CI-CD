@@ -1,0 +1,34 @@
+- name: Destroy Infrastructure
+  hosts: localhost
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Stop and remove Docker container
+      docker_container:
+        name: sample-app
+        state: absent
+
+    - name: Remove Docker image
+      docker_image:
+        name: galiseregin/sample-app
+        state: absent
+
+    - name: Remove application directory
+      file:
+        path: /home/centos/app
+        state: absent
+
+    - name: Remove SSH key
+      file:
+        path: /home/centos/.ssh/id_rsa
+        state: absent
+
+    - name: Uninstall Docker and related packages
+      yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose
+        state: absent
+
